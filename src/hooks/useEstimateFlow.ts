@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +8,9 @@ import { Database, Json } from "@/integrations/supabase/types";
 type LeadInsert = Database['public']['Tables']['leads']['Insert'];
 
 export type EstimateStage = 'photo' | 'description' | 'questions' | 'contact' | 'estimate' | 'category';
+
+const ESTIMATE_TIMEOUT = 120000; // 2 minutes
+const POLL_INTERVAL = 3000; // 3 seconds
 
 export const useEstimateFlow = (config: EstimateConfig) => {
   const [stage, setStage] = useState<EstimateStage>('photo');
@@ -77,6 +79,7 @@ export const useEstimateFlow = (config: EstimateConfig) => {
     if (!lead) return false;
 
     if (lead.status === 'error') {
+      setIsGeneratingEstimate(false);
       throw new Error(lead.error_message || 'Failed to generate estimate');
     }
 
@@ -107,9 +110,23 @@ export const useEstimateFlow = (config: EstimateConfig) => {
 
       if (error) throw error;
 
-      // Start polling for estimate completion
+      let timeElapsed = 0;
       const pollInterval = setInterval(async () => {
         try {
+          timeElapsed += POLL_INTERVAL;
+          
+          // Check if we've exceeded timeout
+          if (timeElapsed >= ESTIMATE_TIMEOUT) {
+            clearInterval(pollInterval);
+            setIsGeneratingEstimate(false);
+            toast({
+              title: "Error",
+              description: "Estimate generation timed out. Please try again.",
+              variant: "destructive",
+            });
+            return;
+          }
+
           const isComplete = await checkEstimateStatus(leadId);
           if (isComplete) {
             clearInterval(pollInterval);
@@ -120,24 +137,11 @@ export const useEstimateFlow = (config: EstimateConfig) => {
           console.error('Error polling estimate:', error);
           toast({
             title: "Error",
-            description: "Failed to generate estimate. Please try again.",
+            description: error instanceof Error ? error.message : "Failed to generate estimate. Please try again.",
             variant: "destructive",
           });
         }
-      }, 3000);
-
-      // Set a timeout to stop polling after 2 minutes
-      setTimeout(() => {
-        clearInterval(pollInterval);
-        if (isGeneratingEstimate) {
-          setIsGeneratingEstimate(false);
-          toast({
-            title: "Error",
-            description: "Estimate generation timed out. Please try again.",
-            variant: "destructive",
-          });
-        }
-      }, 120000);
+      }, POLL_INTERVAL);
 
     } catch (error) {
       console.error('Error initiating estimate generation:', error);
@@ -165,9 +169,12 @@ export const useEstimateFlow = (config: EstimateConfig) => {
     const firstAnswer = answers[currentCategory]?.Q1?.answers[0];
     
     setAnswers(answers);
-
+    
     try {
-      // Create the lead first
+      // Move to contact form immediately
+      setStage('contact');
+
+      // Create the lead in the background
       const leadData: LeadInsert = {
         project_description: firstAnswer || projectDescription || 'New project',
         project_title: `${currentCategory || 'New'} Project`,
@@ -195,6 +202,7 @@ export const useEstimateFlow = (config: EstimateConfig) => {
 
       // Start estimate generation in the background
       startEstimateGeneration(lead.id);
+
     } catch (error) {
       console.error('Error creating lead:', error);
       toast({
@@ -202,11 +210,7 @@ export const useEstimateFlow = (config: EstimateConfig) => {
         description: "Failed to start estimate generation. Please try again.",
         variant: "destructive",
       });
-      return;
     }
-
-    // Move to contact form while estimate generates in background
-    setStage('contact');
   };
 
   const formatAnswersForJson = (answers: AnswersState): Json => {
