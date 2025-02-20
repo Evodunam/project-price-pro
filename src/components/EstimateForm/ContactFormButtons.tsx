@@ -33,7 +33,7 @@ export const ContactFormButtons = ({
           onClick={onSkip}
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Processing..." : "Skip Form (Preview Mode)"}
+          {isSubmitting ? "Processing..." : "Skip Form (Test Estimate)"}
         </Button>
       )}
     </>

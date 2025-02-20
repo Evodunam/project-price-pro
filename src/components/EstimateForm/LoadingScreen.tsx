@@ -22,9 +22,7 @@ export const LoadingScreen = ({ message, isEstimate = false, isBackdrop = false 
         ) : (
           <>
             <div className="flex justify-center space-x-2 mb-4">
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
+              <div className="animate-pulse h-8 w-8 rounded-full bg-primary/20" />
             </div>
             <p className="text-lg font-medium text-foreground">{message}</p>
           </>
