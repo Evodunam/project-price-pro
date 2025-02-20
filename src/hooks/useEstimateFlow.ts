@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -71,32 +70,48 @@ export const useEstimateFlow = (config: EstimateConfig) => {
   };
 
   const checkEstimateStatus = async (leadId: string) => {
-    const { data: lead } = await supabase
-      .from('leads')
-      .select('estimate_data, status, error_message')
-      .eq('id', leadId)
-      .maybeSingle();
+    try {
+      console.log('Checking estimate status for lead:', leadId);
+      
+      const { data: lead, error } = await supabase
+        .from('leads')
+        .select('estimate_data, status, error_message')
+        .eq('id', leadId)
+        .maybeSingle();
 
-    if (!lead) return false;
+      if (error) throw error;
+      
+      if (!lead) {
+        console.log('No lead found with ID:', leadId);
+        return false;
+      }
 
-    if (lead.status === 'error') {
-      setIsGeneratingEstimate(false);
-      throw new Error(lead.error_message || 'Failed to generate estimate');
+      console.log('Lead status:', lead.status, 'Has estimate data:', !!lead.estimate_data);
+
+      if (lead.status === 'error') {
+        setIsGeneratingEstimate(false);
+        throw new Error(lead.error_message || 'Failed to generate estimate');
+      }
+
+      if (lead.status === 'complete' && lead.estimate_data) {
+        console.log('Estimate generation complete');
+        setEstimate(lead.estimate_data);
+        setIsGeneratingEstimate(false);
+        setStage('estimate');
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error checking estimate status:', error);
+      throw error;
     }
-
-    if (lead.status === 'complete' && lead.estimate_data) {
-      setEstimate(lead.estimate_data);
-      setIsGeneratingEstimate(false);
-      setStage('estimate');
-      return true;
-    }
-
-    return false;
   };
 
   const startEstimateGeneration = async (leadId: string) => {
     try {
-      console.log('Starting background estimate generation for lead:', leadId);
+      console.log('Starting estimate generation for lead:', leadId);
+      setIsGeneratingEstimate(true);
       
       const { error } = await supabase.functions.invoke('generate-estimate', {
         body: { 
@@ -109,12 +124,16 @@ export const useEstimateFlow = (config: EstimateConfig) => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error invoking generate-estimate function:', error);
+        throw error;
+      }
 
       let timeElapsed = 0;
       const pollInterval = setInterval(async () => {
         try {
           timeElapsed += POLL_INTERVAL;
+          console.log('Polling estimate status, time elapsed:', timeElapsed);
           
           if (timeElapsed >= ESTIMATE_TIMEOUT) {
             clearInterval(pollInterval);
@@ -129,6 +148,7 @@ export const useEstimateFlow = (config: EstimateConfig) => {
 
           const isComplete = await checkEstimateStatus(leadId);
           if (isComplete) {
+            console.log('Estimate generation completed successfully');
             clearInterval(pollInterval);
           }
         } catch (error) {
@@ -222,42 +242,56 @@ export const useEstimateFlow = (config: EstimateConfig) => {
 
       const currentCategory = matchedQuestionSets[0]?.category;
       const firstAnswer = answers[currentCategory]?.Q1?.answers[0];
-
       const formattedAnswers = formatAnswersForJson(answers);
 
-      const leadData: LeadInsert = {
-        project_description: firstAnswer || projectDescription || 'New project',
-        project_title: `${currentCategory || 'New'} Project`,
-        answers: formattedAnswers,
-        category: currentCategory,
-        status: 'pending',
-        contractor_id: config.contractorId,
-        project_images: uploadedPhotos,
-        user_name: contactData.fullName,
-        user_email: contactData.email,
-        user_phone: contactData.phone,
-        project_address: contactData.address
-      };
+      if (currentLeadId) {
+        console.log('Updating existing lead with contact info:', currentLeadId);
+        const { error: updateError } = await supabase
+          .from('leads')
+          .update({
+            user_name: contactData.fullName,
+            user_email: contactData.email,
+            user_phone: contactData.phone,
+            project_address: contactData.address,
+          })
+          .eq('id', currentLeadId);
 
-      console.log('Creating lead with data:', leadData);
+        if (updateError) throw updateError;
 
-      const { data: lead, error: leadError } = await supabase
-        .from('leads')
-        .insert(leadData)
-        .select()
-        .single();
+        if (!isGeneratingEstimate) {
+          await startEstimateGeneration(currentLeadId);
+        }
+      } else {
+        console.log('Creating new lead with contact info');
+        const leadData: LeadInsert = {
+          project_description: firstAnswer || projectDescription || 'New project',
+          project_title: `${currentCategory || 'New'} Project`,
+          answers: formattedAnswers,
+          category: currentCategory,
+          status: 'pending',
+          contractor_id: config.contractorId,
+          project_images: uploadedPhotos,
+          user_name: contactData.fullName,
+          user_email: contactData.email,
+          user_phone: contactData.phone,
+          project_address: contactData.address
+        };
 
-      if (leadError) throw leadError;
-      
-      if (!lead?.id) {
-        throw new Error('Failed to create lead - no ID returned');
+        const { data: lead, error: leadError } = await supabase
+          .from('leads')
+          .insert(leadData)
+          .select()
+          .single();
+
+        if (leadError) throw leadError;
+        
+        if (!lead?.id) {
+          throw new Error('Failed to create lead - no ID returned');
+        }
+
+        setCurrentLeadId(lead.id);
+        await startEstimateGeneration(lead.id);
       }
-
-      console.log('Lead created successfully:', lead.id);
-      setCurrentLeadId(lead.id);
-      setIsGeneratingEstimate(true);
-
-      startEstimateGeneration(lead.id);
 
     } catch (error) {
       console.error('Error processing contact form:', error);
