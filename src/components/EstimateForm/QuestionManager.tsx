@@ -21,7 +21,6 @@ export const QuestionManager = ({
     currentSet,
     currentSetAnswers,
     isLoadingQuestions,
-    isGeneratingEstimate,
     hasFollowUpQuestion,
     currentStage,
     totalStages,
@@ -30,11 +29,11 @@ export const QuestionManager = ({
     calculateProgress
   } = useQuestionManager(questionSets, onComplete, onProgressChange);
 
+  // Log the current state for debugging
   console.log('QuestionManager state:', {
     currentQuestion,
     currentSet,
     isLoadingQuestions,
-    isGeneratingEstimate,
     hasFollowUpQuestion,
     currentStage,
     totalStages,
@@ -54,12 +53,8 @@ export const QuestionManager = ({
     return <LoadingScreen message="Loading questions..." />;
   }
 
-  if (isGeneratingEstimate) {
-    return <LoadingScreen message="Building your custom estimate..." isEstimate={true} />;
-  }
-
   if (!currentQuestion) {
-    return <LoadingScreen message="Loading questions..." />;
+    return null;
   }
 
   const isLastQuestion = currentStage === totalStages && !hasFollowUpQuestion;

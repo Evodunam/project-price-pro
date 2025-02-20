@@ -165,6 +165,47 @@ export const useEstimateFlow = (config: EstimateConfig) => {
     const firstAnswer = answers[currentCategory]?.Q1?.answers[0];
     
     setAnswers(answers);
+
+    try {
+      // Create the lead first
+      const leadData: LeadInsert = {
+        project_description: firstAnswer || projectDescription || 'New project',
+        project_title: `${currentCategory || 'New'} Project`,
+        answers: formatAnswersForJson(answers),
+        category: currentCategory,
+        status: 'pending',
+        contractor_id: config.contractorId,
+        project_images: uploadedPhotos
+      };
+
+      const { data: lead, error: leadError } = await supabase
+        .from('leads')
+        .insert(leadData)
+        .select()
+        .single();
+
+      if (leadError) throw leadError;
+      
+      if (!lead?.id) {
+        throw new Error('Failed to create lead - no ID returned');
+      }
+
+      setCurrentLeadId(lead.id);
+      setIsGeneratingEstimate(true);
+
+      // Start estimate generation in the background
+      startEstimateGeneration(lead.id);
+    } catch (error) {
+      console.error('Error creating lead:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start estimate generation. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Move to contact form while estimate generates in background
     setStage('contact');
   };
 
