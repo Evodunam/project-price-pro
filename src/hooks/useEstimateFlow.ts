@@ -7,7 +7,7 @@ import { Database, Json } from "@/integrations/supabase/types";
 
 type LeadInsert = Database['public']['Tables']['leads']['Insert'];
 
-export type EstimateStage = 'photo' | 'description' | 'questions' | 'contact' | 'estimate' | 'category';
+export type EstimateStage = 'photo' | 'description' | 'questions' | 'contact' | 'estimate' | 'category' | 'loading';
 
 const ESTIMATE_TIMEOUT = 120000; // 2 minutes
 const POLL_INTERVAL = 3000; // 3 seconds
@@ -115,7 +115,6 @@ export const useEstimateFlow = (config: EstimateConfig) => {
         try {
           timeElapsed += POLL_INTERVAL;
           
-          // Check if we've exceeded timeout
           if (timeElapsed >= ESTIMATE_TIMEOUT) {
             clearInterval(pollInterval);
             setIsGeneratingEstimate(false);
@@ -170,11 +169,9 @@ export const useEstimateFlow = (config: EstimateConfig) => {
     
     setAnswers(answers);
     
+    setStage('loading');
+    
     try {
-      // Move to contact form immediately
-      setStage('contact');
-
-      // Create the lead in the background
       const leadData: LeadInsert = {
         project_description: firstAnswer || projectDescription || 'New project',
         project_title: `${currentCategory || 'New'} Project`,
@@ -200,7 +197,8 @@ export const useEstimateFlow = (config: EstimateConfig) => {
       setCurrentLeadId(lead.id);
       setIsGeneratingEstimate(true);
 
-      // Start estimate generation in the background
+      setStage('contact');
+
       startEstimateGeneration(lead.id);
 
     } catch (error) {
@@ -210,24 +208,8 @@ export const useEstimateFlow = (config: EstimateConfig) => {
         description: "Failed to start estimate generation. Please try again.",
         variant: "destructive",
       });
+      setStage('questions');
     }
-  };
-
-  const formatAnswersForJson = (answers: AnswersState): Json => {
-    const formattedAnswers = Object.entries(answers).reduce((acc, [category, categoryAnswers]) => {
-      acc[category] = Object.entries(categoryAnswers || {}).reduce((catAcc, [questionId, answer]) => {
-        catAcc[questionId] = {
-          question: answer.question,
-          type: answer.type,
-          answers: answer.answers,
-          options: answer.options
-        };
-        return catAcc;
-      }, {} as Record<string, any>);
-      return acc;
-    }, {} as Record<string, any>);
-
-    return formattedAnswers as Json;
   };
 
   const handleContactSubmit = async (contactData: any) => {
@@ -240,7 +222,6 @@ export const useEstimateFlow = (config: EstimateConfig) => {
       const currentCategory = matchedQuestionSets[0]?.category;
       const firstAnswer = answers[currentCategory]?.Q1?.answers[0];
 
-      // Convert answers to Json type
       const formattedAnswers = formatAnswersForJson(answers);
 
       const leadData: LeadInsert = {
@@ -297,7 +278,6 @@ export const useEstimateFlow = (config: EstimateConfig) => {
     try {
       setIsGeneratingEstimate(true);
 
-      // Convert answers to Json type
       const formattedAnswers = formatAnswersForJson(answers);
 
       const leadData: LeadInsert = {
@@ -325,8 +305,8 @@ export const useEstimateFlow = (config: EstimateConfig) => {
 
       setCurrentLeadId(lead.id);
       
-      // Start estimate generation just like in contact form submission
-      startEstimateGeneration(lead.id);
+      await startEstimateGeneration(lead.id);
+      setStage('estimate');
 
     } catch (error) {
       console.error('Error skipping contact form:', error);
@@ -337,6 +317,23 @@ export const useEstimateFlow = (config: EstimateConfig) => {
       });
       setIsGeneratingEstimate(false);
     }
+  };
+
+  const formatAnswersForJson = (answers: AnswersState): Json => {
+    const formattedAnswers = Object.entries(answers).reduce((acc, [category, categoryAnswers]) => {
+      acc[category] = Object.entries(categoryAnswers || {}).reduce((catAcc, [questionId, answer]) => {
+        catAcc[questionId] = {
+          question: answer.question,
+          type: answer.type,
+          answers: answer.answers,
+          options: answer.options
+        };
+        return catAcc;
+      }, {} as Record<string, any>);
+      return acc;
+    }, {} as Record<string, any>);
+
+    return formattedAnswers as Json;
   };
 
   return {
