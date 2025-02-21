@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -97,9 +98,20 @@ const Onboarding = () => {
         return;
       }
 
+      // First check if a contractor record already exists
+      const { data: existingContractor, error: fetchError } = await supabase
+        .from("contractors")
+        .select()
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('Error fetching contractor:', fetchError);
+        throw fetchError;
+      }
+
+      // Prepare the contractor data
       const contractorData = {
-        id: user.id,
-        user_id: user.id,
         business_name: formData.businessName,
         contact_email: formData.contactEmail,
         contact_phone: formData.contactPhone,
@@ -108,34 +120,57 @@ const Onboarding = () => {
         branding_colors: {
           primary: formData.primaryColor,
           secondary: formData.secondaryColor,
-        },
+        }
       };
 
-      const { data: contractor, error: contractorError } = await supabase
-        .from("contractors")
-        .upsert(contractorData)
-        .select()
-        .single();
+      let contractor;
+      
+      if (existingContractor) {
+        // Update existing contractor
+        const { data: updatedContractor, error: updateError } = await supabase
+          .from("contractors")
+          .update(contractorData)
+          .eq("id", existingContractor.id)
+          .select()
+          .single();
 
-      if (contractorError) {
-        console.error('Contractor creation error:', contractorError);
-        throw contractorError;
+        if (updateError) {
+          console.error('Contractor update error:', updateError);
+          throw updateError;
+        }
+        contractor = updatedContractor;
+      } else {
+        // Create new contractor
+        const { data: newContractor, error: insertError } = await supabase
+          .from("contractors")
+          .insert({
+            ...contractorData,
+            id: user.id,
+            user_id: user.id
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Contractor creation error:', insertError);
+          throw insertError;
+        }
+        contractor = newContractor;
       }
 
-      const settingsData = {
-        id: user.id,
-        minimum_project_cost: parseFloat(formData.minimumProjectCost),
-        markup_percentage: parseFloat(formData.markupPercentage),
-        tax_rate: parseFloat(formData.taxRate),
-        branding_colors: {
-          primary: formData.primaryColor,
-          secondary: formData.secondaryColor,
-        },
-      };
-
+      // Update contractor settings
       const { error: settingsError } = await supabase
         .from("contractor_settings")
-        .upsert(settingsData);
+        .upsert({
+          id: contractor.id,
+          minimum_project_cost: parseFloat(formData.minimumProjectCost),
+          markup_percentage: parseFloat(formData.markupPercentage),
+          tax_rate: parseFloat(formData.taxRate),
+          branding_colors: {
+            primary: formData.primaryColor,
+            secondary: formData.secondaryColor,
+          },
+        });
 
       if (settingsError) {
         console.error('Settings update error:', settingsError);
