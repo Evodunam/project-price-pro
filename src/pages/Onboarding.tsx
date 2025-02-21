@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -157,18 +156,24 @@ const Onboarding = () => {
         contractor = newContractor;
       }
 
-      // Update contractor settings
+      // Prepare settings data
+      const settingsData = {
+        id: contractor.id,
+        minimum_project_cost: parseFloat(formData.minimumProjectCost),
+        markup_percentage: parseFloat(formData.markupPercentage),
+        tax_rate: parseFloat(formData.taxRate),
+        branding_colors: {
+          primary: formData.primaryColor,
+          secondary: formData.secondaryColor,
+        }
+      };
+
+      // Update contractor settings using upsert
       const { error: settingsError } = await supabase
         .from("contractor_settings")
-        .upsert({
-          id: contractor.id,
-          minimum_project_cost: parseFloat(formData.minimumProjectCost),
-          markup_percentage: parseFloat(formData.markupPercentage),
-          tax_rate: parseFloat(formData.taxRate),
-          branding_colors: {
-            primary: formData.primaryColor,
-            secondary: formData.secondaryColor,
-          },
+        .upsert(settingsData, {
+          onConflict: 'id',
+          ignoreDuplicates: false
         });
 
       if (settingsError) {
@@ -536,4 +541,3 @@ const Onboarding = () => {
 };
 
 export default Onboarding;
-
