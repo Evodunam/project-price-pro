@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -86,7 +87,10 @@ const EstimatePage = () => {
       console.log('Fetching contractor settings for ID:', urlContractorId);
       const { data, error } = await supabase
         .from("contractors")
-        .select("*, contractor_settings(*)")
+        .select(`
+          *,
+          contractor_settings!contractor_settings_id_fkey (*)
+        `)
         .eq("id", urlContractorId)
         .maybeSingle();
       
@@ -98,7 +102,12 @@ const EstimatePage = () => {
         console.error('No contractor found with ID:', urlContractorId);
         throw new Error("Contractor not found");
       }
-      return data;
+
+      // Transform the data to ensure contractor_settings is a single object
+      return {
+        ...data,
+        contractor_settings: data.contractor_settings ? data.contractor_settings[0] : null
+      };
     },
     enabled: isValidUUID(urlContractorId),
     retry: false

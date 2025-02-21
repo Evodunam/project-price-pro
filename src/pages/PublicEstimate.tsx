@@ -88,13 +88,18 @@ const PublicEstimate = () => {
         .from("contractors")
         .select(`
           *,
-          contractor_settings (*)
+          contractor_settings!contractor_settings_id_fkey (*)
         `)
         .eq("id", contractorId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      return data as ContractorWithSettings;
+      
+      // Transform the data to ensure contractor_settings is a single object
+      return {
+        ...data,
+        contractor_settings: data.contractor_settings ? data.contractor_settings[0] : null
+      };
     },
     enabled: !!lead,
     staleTime: 5 * 60 * 1000,

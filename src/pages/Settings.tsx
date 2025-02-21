@@ -61,12 +61,20 @@ const Settings = () => {
 
       const { data, error } = await supabase
         .from("contractors")
-        .select("*, contractor_settings(*)")
+        .select(`
+          *,
+          contractor_settings!contractor_settings_id_fkey (*)
+        `)
         .eq("id", user.id)
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      
+      // Transform the data to ensure contractor_settings is a single object
+      return {
+        ...data,
+        contractor_settings: data.contractor_settings ? data.contractor_settings[0] : null
+      };
     },
   });
 
