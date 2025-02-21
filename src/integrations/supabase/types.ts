@@ -230,7 +230,7 @@ export type Database = {
           contact_email: string
           contact_phone?: string | null
           created_at?: string | null
-          id: string
+          id?: string
           license_number?: string | null
           subscription_status?:
             | Database["public"]["Enums"]["subscription_status"]
