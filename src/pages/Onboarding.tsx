@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -105,6 +106,7 @@ const Onboarding = () => {
       if (fetchError) throw fetchError;
 
       if (existingContractor) {
+        // Update existing contractor
         const { error: updateError } = await supabase
           .from("contractors")
           .update({
@@ -122,10 +124,10 @@ const Onboarding = () => {
 
         if (updateError) throw updateError;
 
+        // Update existing settings - use update since we know the record exists
         const { error: settingsError } = await supabase
           .from("contractor_settings")
-          .upsert({
-            id: existingContractor.id,
+          .update({
             minimum_project_cost: parseFloat(formData.minimumProjectCost),
             markup_percentage: parseFloat(formData.markupPercentage),
             tax_rate: parseFloat(formData.taxRate),
@@ -133,10 +135,12 @@ const Onboarding = () => {
               primary: formData.primaryColor,
               secondary: formData.secondaryColor,
             },
-          });
+          })
+          .eq("id", existingContractor.id);
 
         if (settingsError) throw settingsError;
       } else {
+        // Create new contractor
         const { data: newContractor, error: insertError } = await supabase
           .from("contractors")
           .insert({
@@ -156,9 +160,11 @@ const Onboarding = () => {
 
         if (insertError) throw insertError;
 
+        // For new contractor, use upsert since the trigger has already created the settings record
         const { error: settingsError } = await supabase
           .from("contractor_settings")
-          .update({
+          .upsert({
+            id: newContractor.id,
             minimum_project_cost: parseFloat(formData.minimumProjectCost),
             markup_percentage: parseFloat(formData.markupPercentage),
             tax_rate: parseFloat(formData.taxRate),
@@ -166,8 +172,7 @@ const Onboarding = () => {
               primary: formData.primaryColor,
               secondary: formData.secondaryColor,
             },
-          })
-          .eq("id", newContractor.id);
+          });
 
         if (settingsError) throw settingsError;
       }
