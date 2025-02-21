@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,6 @@ const Onboarding = () => {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState<OnboardingStep>(OnboardingSteps.BUSINESS_INFO);
   const [loading, setLoading] = useState(false);
-  const [activeColorType, setActiveColorType] = useState<'primary' | 'secondary'>('primary');
   const [formData, setFormData] = useState({
     businessName: "",
     fullName: "",
@@ -111,6 +111,7 @@ const Onboarding = () => {
 
       // Prepare the contractor data
       const contractorData = {
+        user_id: user.id,
         business_name: formData.businessName,
         contact_email: formData.contactEmail,
         contact_phone: formData.contactPhone,
@@ -142,10 +143,7 @@ const Onboarding = () => {
         // Create new contractor
         const { data: newContractor, error: insertError } = await supabase
           .from("contractors")
-          .insert({
-            ...contractorData,
-            user_id: user.id
-          })
+          .insert(contractorData)
           .select()
           .single();
 
@@ -171,10 +169,7 @@ const Onboarding = () => {
       // Update contractor settings using upsert
       const { error: settingsError } = await supabase
         .from("contractor_settings")
-        .upsert(settingsData, {
-          onConflict: 'id',
-          ignoreDuplicates: false
-        });
+        .upsert(settingsData);
 
       if (settingsError) {
         console.error('Settings update error:', settingsError);
