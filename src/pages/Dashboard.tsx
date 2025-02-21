@@ -1,3 +1,4 @@
+
 import { NavBar } from "@/components/ui/tubelight-navbar";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,7 +41,7 @@ const Dashboard = () => {
       }
       
       setUserId(user.id);
-      console.log('Set user ID:', user.id); // Debug log
+      console.log('Set user ID:', user.id);
     };
     
     checkAuth();
@@ -50,7 +51,7 @@ const Dashboard = () => {
     queryKey: ["contractor", userId],
     queryFn: async () => {
       if (!userId) return null;
-      console.log('Fetching contractor data for ID:', userId); // Debug log
+      console.log('Fetching contractor data for ID:', userId);
 
       const { data, error } = await supabase
         .from("contractors")
@@ -59,11 +60,11 @@ const Dashboard = () => {
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching contractor:', error); // Debug log
+        console.error('Error fetching contractor:', error);
         throw error;
       }
       if (!data) {
-        console.log('No contractor data found, redirecting to onboarding'); // Debug log
+        console.log('No contractor data found, redirecting to onboarding');
         navigate("/onboarding");
         return null;
       }
@@ -80,7 +81,7 @@ const Dashboard = () => {
     queryKey: ["leads", userId],
     queryFn: async () => {
       if (!userId) {
-        console.error('No user ID available for leads query'); // Debug log
+        console.error('No user ID available for leads query');
         throw new Error("No user ID available");
       }
 
@@ -119,13 +120,13 @@ const Dashboard = () => {
       if (!effectiveContractorId) {
         throw new Error('No contractor ID available');
       }
-      console.log('Using contractor ID for link:', effectiveContractorId); // Debug log
+      console.log('Using contractor ID for link:', effectiveContractorId);
       const longUrl = `${baseUrl}/estimate/${effectiveContractorId}`;
       
       const { data, error } = await supabase.functions.invoke('shorten-url', {
         body: { 
           longUrl,
-          contractorId: effectiveContractorId // Pass contractor ID explicitly
+          contractorId: effectiveContractorId
         }
       });
 
