@@ -97,71 +97,50 @@ const Onboarding = () => {
         return;
       }
 
-      const { data: existingContractor, error: fetchError } = await supabase
+      const contractorData = {
+        id: user.id,
+        user_id: user.id,
+        business_name: formData.businessName,
+        contact_email: formData.contactEmail,
+        contact_phone: formData.contactPhone,
+        business_address: formData.address,
+        license_number: formData.licenseNumber,
+        branding_colors: {
+          primary: formData.primaryColor,
+          secondary: formData.secondaryColor,
+        },
+      };
+
+      const { data: contractor, error: contractorError } = await supabase
         .from("contractors")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
+        .upsert(contractorData)
+        .select()
+        .single();
 
-      if (fetchError) throw fetchError;
-
-      let contractorId: string;
-
-      if (existingContractor) {
-        const { error: updateError } = await supabase
-          .from("contractors")
-          .update({
-            business_name: formData.businessName,
-            contact_email: formData.contactEmail,
-            contact_phone: formData.contactPhone,
-            business_address: formData.address,
-            license_number: formData.licenseNumber,
-            branding_colors: {
-              primary: formData.primaryColor,
-              secondary: formData.secondaryColor,
-            },
-          })
-          .eq("id", existingContractor.id);
-
-        if (updateError) throw updateError;
-        contractorId = existingContractor.id;
-      } else {
-        const { data: newContractor, error: insertError } = await supabase
-          .from("contractors")
-          .insert({
-            id: user.id,
-            user_id: user.id,
-            business_name: formData.businessName,
-            contact_email: formData.contactEmail,
-            contact_phone: formData.contactPhone,
-            business_address: formData.address,
-            license_number: formData.licenseNumber,
-            branding_colors: {
-              primary: formData.primaryColor,
-              secondary: formData.secondaryColor,
-            },
-          })
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-        contractorId = newContractor.id;
+      if (contractorError) {
+        console.error('Contractor creation error:', contractorError);
+        throw contractorError;
       }
+
+      const settingsData = {
+        id: user.id,
+        minimum_project_cost: parseFloat(formData.minimumProjectCost),
+        markup_percentage: parseFloat(formData.markupPercentage),
+        tax_rate: parseFloat(formData.taxRate),
+        branding_colors: {
+          primary: formData.primaryColor,
+          secondary: formData.secondaryColor,
+        },
+      };
 
       const { error: settingsError } = await supabase
         .from("contractor_settings")
-        .upsert({
-          id: contractorId,
-          minimum_project_cost: parseFloat(formData.minimumProjectCost),
-          markup_percentage: parseFloat(formData.markupPercentage),
-          tax_rate: parseFloat(formData.taxRate),
-          branding_colors: {
-            primary: formData.primaryColor,
-            secondary: formData.secondaryColor,
-          },
-        });
+        .upsert(settingsData);
 
-      if (settingsError) throw settingsError;
+      if (settingsError) {
+        console.error('Settings update error:', settingsError);
+        throw settingsError;
+      }
 
       toast({
         title: "Success!",
