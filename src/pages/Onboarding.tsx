@@ -33,8 +33,6 @@ const CONSTRUCTION_INDUSTRIES = [
   "Carpentry",
 ] as const;
 
-const DEFAULT_CONTRACTOR_ID = "098bcb69-99c6-445b-bf02-94dc7ef8c938";
-
 const Onboarding = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -138,7 +136,6 @@ const Onboarding = () => {
         const { data: newContractor, error: insertError } = await supabase
           .from("contractors")
           .insert({
-            id: DEFAULT_CONTRACTOR_ID,
             user_id: user.id,
             business_name: formData.businessName,
             contact_email: formData.contactEmail,
