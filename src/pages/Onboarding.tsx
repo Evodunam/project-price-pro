@@ -98,8 +98,8 @@ const Onboarding = () => {
 
       const { data: existingContractor, error: fetchError } = await supabase
         .from("contractors")
-        .select('id')
-        .eq('user_id', user.id)
+        .select("id")
+        .eq("user_id", user.id)
         .maybeSingle();
 
       if (fetchError) throw fetchError;
@@ -118,18 +118,22 @@ const Onboarding = () => {
               secondary: formData.secondaryColor,
             },
           })
-          .eq('id', existingContractor.id);
+          .eq("id", existingContractor.id);
 
         if (updateError) throw updateError;
 
         const { error: settingsError } = await supabase
           .from("contractor_settings")
-          .update({
+          .upsert({
+            id: existingContractor.id,
             minimum_project_cost: parseFloat(formData.minimumProjectCost),
             markup_percentage: parseFloat(formData.markupPercentage),
             tax_rate: parseFloat(formData.taxRate),
-          })
-          .eq('id', existingContractor.id);
+            branding_colors: {
+              primary: formData.primaryColor,
+              secondary: formData.secondaryColor,
+            },
+          });
 
         if (settingsError) throw settingsError;
       } else {
@@ -151,6 +155,21 @@ const Onboarding = () => {
           .single();
 
         if (insertError) throw insertError;
+
+        const { error: settingsError } = await supabase
+          .from("contractor_settings")
+          .update({
+            minimum_project_cost: parseFloat(formData.minimumProjectCost),
+            markup_percentage: parseFloat(formData.markupPercentage),
+            tax_rate: parseFloat(formData.taxRate),
+            branding_colors: {
+              primary: formData.primaryColor,
+              secondary: formData.secondaryColor,
+            },
+          })
+          .eq("id", newContractor.id);
+
+        if (settingsError) throw settingsError;
       }
 
       toast({
@@ -164,7 +183,7 @@ const Onboarding = () => {
         setCurrentStep((prev) => (prev + 1) as OnboardingStep);
       }
     } catch (error: any) {
-      console.error('Onboarding error:', error);
+      console.error("Onboarding error:", error);
       toast({
         title: "Error",
         description: error.message || "An error occurred while saving your information.",
