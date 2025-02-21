@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +53,34 @@ const Onboarding = () => {
     markupPercentage: "20",
     taxRate: "8.5",
   });
+
+  // Check if user is already onboarded
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          navigate("/login");
+          return;
+        }
+
+        const { data: contractor } = await supabase
+          .from("contractors")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (contractor) {
+          console.log("User already onboarded, redirecting to dashboard");
+          navigate("/dashboard");
+        }
+      } catch (error) {
+        console.error("Error checking onboarding status:", error);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [navigate]);
 
   const [touched, setTouched] = useState({
     businessName: false,
@@ -182,6 +210,7 @@ const Onboarding = () => {
       });
       
       if (currentStep === OnboardingSteps.SETTINGS) {
+        console.log("Onboarding complete, redirecting to dashboard");
         navigate("/dashboard");
       } else {
         setCurrentStep((prev) => (prev + 1) as OnboardingStep);
