@@ -24,7 +24,18 @@ const Login = () => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        navigate("/dashboard");
+        // Check if contractor exists before redirecting
+        const { data: contractor } = await supabase
+          .from("contractors")
+          .select("*")
+          .eq("id", session.user.id)
+          .maybeSingle();
+
+        if (contractor) {
+          navigate("/dashboard");
+        } else {
+          navigate("/onboarding");
+        }
       }
     };
     checkUser();
@@ -109,7 +120,8 @@ const Login = () => {
 
     try {
       if (isSignUp) {
-        const { error: signUpError } = await supabase.auth.signUp({
+        // Handle sign up
+        const { error: signUpError, data: signUpData } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -126,29 +138,23 @@ const Login = () => {
           title: "Account created successfully!",
           description: "Please check your email to verify your account.",
         });
+        
+        // Always navigate to onboarding for new users
         navigate("/onboarding");
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        // Handle sign in
+        const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
-        if (signInError) {
-          console.error('Sign in error:', signInError);
-          throw signInError;
-        }
+        if (signInError) throw signInError;
 
-        // After successful login, get the user session
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          throw new Error("Failed to get session after login");
-        }
-
-        // Check if contractor record exists
+        // Check if user has a contractor record
         const { data: contractor, error: contractorError } = await supabase
           .from("contractors")
           .select("*")
-          .eq("id", session.user.id)
+          .eq("id", signInData.session?.user.id)
           .maybeSingle();
 
         if (contractorError) throw contractorError;
@@ -158,7 +164,7 @@ const Login = () => {
           description: "You have successfully signed in.",
         });
 
-        // Navigate based on contractor existence
+        // Navigate based on whether the user has completed onboarding
         if (contractor) {
           navigate("/dashboard");
         } else {
