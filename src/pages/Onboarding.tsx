@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -103,9 +102,9 @@ const Onboarding = () => {
         .from("contractors")
         .select()
         .eq("user_id", user.id)
-        .maybeSingle();
+        .single();
 
-      if (fetchError) {
+      if (fetchError && fetchError.code !== 'PGRST116') {
         console.error('Error fetching contractor:', fetchError);
         throw fetchError;
       }
@@ -145,7 +144,6 @@ const Onboarding = () => {
           .from("contractors")
           .insert({
             ...contractorData,
-            id: user.id,
             user_id: user.id
           })
           .select()
