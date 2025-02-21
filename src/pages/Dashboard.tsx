@@ -1,4 +1,3 @@
-
 import { NavBar } from "@/components/ui/tubelight-navbar";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,23 +24,51 @@ const Dashboard = () => {
     { name: "Settings", url: "/settings", icon: Settings }
   ];
 
-  // First check authentication
+  // First check authentication and contractor status
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !user) {
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        
+        if (authError || !user) {
+          toast({
+            title: "Authentication required",
+            description: "Please sign in to access the dashboard",
+            variant: "destructive",
+          });
+          navigate("/login");
+          return;
+        }
+        
+        setUserId(user.id);
+        console.log('Set user ID:', user.id);
+
+        // Check if contractor exists
+        const { data: contractor, error: contractorError } = await supabase
+          .from("contractors")
+          .select("*")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (contractorError) {
+          console.error('Error checking contractor:', contractorError);
+          throw contractorError;
+        }
+
+        if (!contractor) {
+          console.log('No contractor data found, redirecting to onboarding');
+          navigate("/onboarding");
+          return;
+        }
+      } catch (error) {
+        console.error('Error in auth check:', error);
         toast({
-          title: "Authentication required",
-          description: "Please sign in to access the dashboard",
+          title: "Error",
+          description: "An error occurred while checking your account status",
           variant: "destructive",
         });
         navigate("/login");
-        return;
       }
-      
-      setUserId(user.id);
-      console.log('Set user ID:', user.id);
     };
     
     checkAuth();
@@ -63,11 +90,13 @@ const Dashboard = () => {
         console.error('Error fetching contractor:', error);
         throw error;
       }
+      
       if (!data) {
         console.log('No contractor data found, redirecting to onboarding');
         navigate("/onboarding");
         return null;
       }
+      
       return data;
     },
     enabled: !!userId,

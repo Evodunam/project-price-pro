@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -94,6 +93,7 @@ const Onboarding = () => {
           description: "No authenticated user found. Please log in again.",
           variant: "destructive",
         });
+        navigate("/login");
         return;
       }
 
@@ -105,8 +105,9 @@ const Onboarding = () => {
 
       if (fetchError) throw fetchError;
 
+      let contractorId: string;
+
       if (existingContractor) {
-        // Update existing contractor
         const { error: updateError } = await supabase
           .from("contractors")
           .update({
@@ -123,27 +124,12 @@ const Onboarding = () => {
           .eq("id", existingContractor.id);
 
         if (updateError) throw updateError;
-
-        // Update existing settings - use update since we know the record exists
-        const { error: settingsError } = await supabase
-          .from("contractor_settings")
-          .update({
-            minimum_project_cost: parseFloat(formData.minimumProjectCost),
-            markup_percentage: parseFloat(formData.markupPercentage),
-            tax_rate: parseFloat(formData.taxRate),
-            branding_colors: {
-              primary: formData.primaryColor,
-              secondary: formData.secondaryColor,
-            },
-          })
-          .eq("id", existingContractor.id);
-
-        if (settingsError) throw settingsError;
+        contractorId = existingContractor.id;
       } else {
-        // Create new contractor
         const { data: newContractor, error: insertError } = await supabase
           .from("contractors")
           .insert({
+            id: user.id,
             user_id: user.id,
             business_name: formData.businessName,
             contact_email: formData.contactEmail,
@@ -159,26 +145,26 @@ const Onboarding = () => {
           .single();
 
         if (insertError) throw insertError;
-
-        // For new contractor, use upsert since the trigger has already created the settings record
-        const { error: settingsError } = await supabase
-          .from("contractor_settings")
-          .upsert({
-            id: newContractor.id,
-            minimum_project_cost: parseFloat(formData.minimumProjectCost),
-            markup_percentage: parseFloat(formData.markupPercentage),
-            tax_rate: parseFloat(formData.taxRate),
-            branding_colors: {
-              primary: formData.primaryColor,
-              secondary: formData.secondaryColor,
-            },
-          });
-
-        if (settingsError) throw settingsError;
+        contractorId = newContractor.id;
       }
 
+      const { error: settingsError } = await supabase
+        .from("contractor_settings")
+        .upsert({
+          id: contractorId,
+          minimum_project_cost: parseFloat(formData.minimumProjectCost),
+          markup_percentage: parseFloat(formData.markupPercentage),
+          tax_rate: parseFloat(formData.taxRate),
+          branding_colors: {
+            primary: formData.primaryColor,
+            secondary: formData.secondaryColor,
+          },
+        });
+
+      if (settingsError) throw settingsError;
+
       toast({
-        title: "Information saved!",
+        title: "Success!",
         description: "Your business information has been saved successfully.",
       });
       
