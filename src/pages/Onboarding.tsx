@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -54,7 +53,6 @@ const Onboarding = () => {
     taxRate: "8.5",
   });
 
-  // Check if user is already onboarded
   useEffect(() => {
     const checkOnboardingStatus = async () => {
       try {
@@ -72,7 +70,7 @@ const Onboarding = () => {
 
         if (contractor) {
           console.log("User already onboarded, redirecting to dashboard");
-          navigate("/dashboard");
+          navigate("/dashboard", { replace: true });
         }
       } catch (error) {
         console.error("Error checking onboarding status:", error);
@@ -125,7 +123,6 @@ const Onboarding = () => {
         return;
       }
 
-      // First check if a contractor record already exists
       const { data: existingContractor, error: fetchError } = await supabase
         .from("contractors")
         .select()
@@ -137,7 +134,6 @@ const Onboarding = () => {
         throw fetchError;
       }
 
-      // Prepare the contractor data
       const contractorData = {
         user_id: user.id,
         business_name: formData.businessName,
@@ -154,7 +150,6 @@ const Onboarding = () => {
       let contractor;
       
       if (existingContractor) {
-        // Update existing contractor
         const { data: updatedContractor, error: updateError } = await supabase
           .from("contractors")
           .update(contractorData)
@@ -168,7 +163,6 @@ const Onboarding = () => {
         }
         contractor = updatedContractor;
       } else {
-        // Create new contractor
         const { data: newContractor, error: insertError } = await supabase
           .from("contractors")
           .insert(contractorData)
@@ -182,7 +176,6 @@ const Onboarding = () => {
         contractor = newContractor;
       }
 
-      // Prepare settings data
       const settingsData = {
         id: contractor.id,
         minimum_project_cost: parseFloat(formData.minimumProjectCost),
@@ -194,7 +187,6 @@ const Onboarding = () => {
         }
       };
 
-      // Update contractor settings using upsert
       const { error: settingsError } = await supabase
         .from("contractor_settings")
         .upsert(settingsData);
@@ -208,10 +200,11 @@ const Onboarding = () => {
         title: "Success!",
         description: "Your business information has been saved successfully.",
       });
-      
+
       if (currentStep === OnboardingSteps.SETTINGS) {
         console.log("Onboarding complete, redirecting to dashboard");
-        navigate("/dashboard");
+        navigate("/dashboard", { replace: true });
+        return;
       } else {
         setCurrentStep((prev) => (prev + 1) as OnboardingStep);
       }

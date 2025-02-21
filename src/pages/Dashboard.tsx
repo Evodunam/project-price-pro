@@ -24,7 +24,7 @@ const Dashboard = () => {
     { name: "Settings", url: "/settings", icon: Settings }
   ];
 
-  // First check authentication and contractor status
+  // First check authentication
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -42,24 +42,6 @@ const Dashboard = () => {
         
         setUserId(user.id);
         console.log('Set user ID:', user.id);
-
-        // Check if contractor exists
-        const { data: contractor, error: contractorError } = await supabase
-          .from("contractors")
-          .select("*")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (contractorError) {
-          console.error('Error checking contractor:', contractorError);
-          throw contractorError;
-        }
-
-        if (!contractor) {
-          console.log('No contractor data found, redirecting to onboarding');
-          navigate("/onboarding");
-          return;
-        }
       } catch (error) {
         console.error('Error in auth check:', error);
         toast({
@@ -74,6 +56,7 @@ const Dashboard = () => {
     checkAuth();
   }, [navigate, toast]);
 
+  // Fetch contractor data
   const { data: contractor, isLoading: isContractorLoading } = useQuery({
     queryKey: ["contractor", userId],
     queryFn: async () => {
@@ -83,7 +66,7 @@ const Dashboard = () => {
       const { data, error } = await supabase
         .from("contractors")
         .select("*, contractor_settings(*)")
-        .eq("id", userId)
+        .eq("user_id", userId)
         .maybeSingle();
 
       if (error) {
@@ -106,6 +89,7 @@ const Dashboard = () => {
     },
   });
 
+  // Fetch leads data only if we have contractor data
   const { data: leads = [], isError: isLeadsError } = useQuery({
     queryKey: ["leads", userId],
     queryFn: async () => {
@@ -130,16 +114,20 @@ const Dashboard = () => {
     },
   });
 
-  // Handle query errors with useEffect
-  useEffect(() => {
-    if (isLeadsError) {
-      toast({
-        title: "Error",
-        description: "Failed to load leads. Please try refreshing the page.",
-        variant: "destructive",
-      });
-    }
-  }, [isLeadsError, toast]);
+  // Show loading state while fetching initial data
+  if (isContractorLoading) {
+    return (
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  // Don't render anything if no contractor data
+  if (!contractor) return null;
+
+  const totalLeads = leads.length;
+  const totalEstimatedValue = leads.reduce((sum, lead) => sum + (lead.estimated_cost || 0), 0);
 
   const copyEstimatorLink = async () => {
     try {
@@ -191,19 +179,6 @@ const Dashboard = () => {
       setIsCopyingUrl(false);
     }
   };
-
-  if (isContractorLoading) {
-    return (
-      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!contractor) return null;
-
-  const totalLeads = leads.length;
-  const totalEstimatedValue = leads.reduce((sum, lead) => sum + (lead.estimated_cost || 0), 0);
 
   const features = [
     {
